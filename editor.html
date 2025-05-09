@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Photo Editor</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --dark-color: #2b2d42;
+            --light-color: #f8f9fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: var(--dark-color);
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .container {
+            display: flex;
+            max-width: 1200px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .toolbar {
+            width: 250px;
+            padding: 1rem;
+            background-color: var(--light-color);
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .tool-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .tool-section h3 {
+            font-size: 1rem;
+            margin-bottom: 0.8rem;
+            color: var(--dark-color);
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tool-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tool-btn {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px;
+        }
+
+        .tool-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .tool-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .workspace {
+            flex: 1;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        #image-container {
+            position: relative;
+            margin-bottom: 1rem;
+            max-width: 100%;
+            overflow: auto;
+        }
+
+        #image-canvas {
+            max-width: 100%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        #selection-box {
+            position: absolute;
+            border: 2px dashed #000;
+            background-color: rgba(0,0,0,0.2);
+            display: none;
+            cursor: move;
+        }
+
+        .selection-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border: 1px solid #000;
+            z-index: 1;
+        }
+
+        .selection-handle-nw {
+            top: -5px;
+            left: -5px;
+            cursor: nwse-resize;
+        }
+
+        .selection-handle-ne {
+            top: -5px;
+            right: -5px;
+            cursor: nesw-resize;
+        }
+
+        .selection-handle-sw {
+            bottom: -5px;
+            left: -5px;
+            cursor: nesw-resize;
+        }
+
+        .selection-handle-se {
+            bottom: -5px;
+            right: -5px;
+            cursor: nwse-resize;
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background: rgba(67, 97, 238, 0.05);
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .slider-control {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        footer {
+            background-color: var(--dark-color);
+            color: white;
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .toolbar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">Web Photo Editor</div>
+        <div>
+            <input type="file" id="file-input" accept="image/*" style="display: none;">
+            <button class="btn btn-primary" id="upload-btn">Загрузить изображение</button>
+            <button class="btn btn-primary" id="save-btn">Сохранить</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="toolbar">
+            <div class="tool-section">
+                <h3>Фильтры</h3>
+                <div class="tool-options">
+                    <button class="tool-btn" data-filter="gray">
+                        <i class="fas fa-moon"></i>
+                        <span>Градации серого</span>
+                    </button>
+                    <button class="tool-btn" data-filter="better_gray">
+                        <i class="fas fa-adjust"></i>
+                        <span>Улучшенный серый</span>
+                    </button>
+                    <button class="tool-btn" data-filter="barilef">
+                        <i class="fas fa-mountain"></i>
+                        <span>Барельеф</span>
+                    </button>
+                    <button class="tool-btn" data-filter="blur">
+                        <i class="fas fa-blur"></i>
+                        <span>Размытие</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <h3>Коррекция</h3>
+                <label>Яркость</label>
+                <input type="range" class="slider-control" id="brightness-slider" min="0" max="200" value="100">
+
+                <label>Контраст</label>
+                <input type="range" class="slider-control" id="contrast-slider" min="0" max="200" value="100">
+
+                <label>Насыщенность</label>
+                <input type="range" class="slider-control" id="saturation-slider" min="0" max="200" value="100">
+
+                <label>Резкость</label>
+                <input type="range" class="slider-control" id="sharpness-slider" min="0" max="200" value="100">
+
+                <label>Прозрачность</label>
+                <input type="range" class="slider-control" id="transparency-slider" min="0" max="255" value="255">
+
+                <label>Цветокоррекция</label>
+                <input type="range" class="slider-control" id="color-slider" min="0" max="124" value="124">
+            </div>
+
+            <div class="tool-section">
+                <button class="btn btn-primary" id="crop-btn">Обрезать</button>
+                <button class="btn btn-primary" id="reset-btn">Сбросить</button>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div id="image-container">
+                <img id="image-canvas" style="display: none;">
+                <div id="selection-box">
+                    <div class="selection-handle selection-handle-nw"></div>
+                    <div class="selection-handle selection-handle-ne"></div>
+                    <div class="selection-handle selection-handle-sw"></div>
+                    <div class="selection-handle selection-handle-se"></div>
+                </div>
+            </div>
+
+            <div class="upload-area" id="upload-area">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h3>Перетащите сюда изображение</h3>
+                <p>или нажмите для выбора файла</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2023 Web Photo Editor. Все права защищены.</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    <script>
+        // Глобальные переменные
+        let currentImage = null;
+        let imageWidth = 0;
+        let imageHeight = 0;
+        let isDragging = false;
+        let isResizing = false;
+        let resizeHandle = null;
+        let startX, startY;
+        let selectionX = 0, selectionY = 0, selectionW = 0, selectionH = 0;
+
+        // Элементы DOM
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadBtn = document.getElementById('upload-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const imageCanvas = document.getElementById('image-canvas');
+        const selectionBox = document.getElementById('selection-box');
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        const cropBtn = document.getElementById('crop-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Слайдеры
+        const brightnessSlider = document.getElementById('brightness-slider');
+        const contrastSlider = document.getElementById('contrast-slider');
+        const saturationSlider = document.getElementById('saturation-slider');
+        const sharpnessSlider = document.getElementById('sharpness-slider');
+        const transparencySlider = document.getElementById('transparency-slider');
+        const colorSlider = document.getElementById('color-slider');
+
+        // Обработчики событий
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', handleFileUpload);
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyFilter(btn.dataset.filter);
+            });
+        });
+
+        cropBtn.addEventListener('click', () => {
+            fetch('/crop', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.image) {
+                        updateImage(`data:image/png;base64,${data.image}`, data.width, data.height);
+                        hideSelectionBox();
+                    }
+                });
+        });
+
+        resetBtn.addEventListener('click', () => {
+            brightnessSlider.value = 100;
+            contrastSlider.value = 100;
+            saturationSlider.value = 100;
+            sharpnessSlider.value = 100;
+            transparencySlider.value = 255;
+            colorSlider.value = 124;
+
+            if (currentImage) {
+                imageCanvas.src = currentImage;
+                fetch('/adjust/reset', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.image) {
+                            updateImage(`data:image/png;base64,${data.image}`, data.width, data.height);
+                        }
+                    });
+            }
+        });
+
+        // Слайдеры
+        brightnessSlider.addEventListener('input', () => {
+            adjustImage('brightness', brightnessSlider.value);
+        });
+
+        contrastSlider.addEventListener('input', () => {
+            adjustImage('contrast', contrastSlider.value);
+        });
+
+        saturationSlider.addEventListener('input', () => {
+            adjustImage('saturation', saturationSlider.value);
+        });
+
+        sharpnessSlider.addEventListener('input', () => {
+            adjustImage('sharpness', sharpnessSlider.value);
+        });
+
+        transparencySlider.addEventListener('input', () => {
+            adjustImage('transparency', transparencySlider.value);
+        });
+
+        colorSlider.addEventListener('input', () => {
+            adjustImage('color', colorSlider.value);
+        });
+
+        // Обработка выделения
+        selectionBox.addEventListener('mousedown', startSelectionDrag);
+        document.querySelectorAll('.selection-handle').forEach(handle => {
+            handle.addEventListener('mousedown', startResize);
+        });
+
+        document.addEventListener('mousemove', handleDrag);
+        document.addEventListener('mouseup', stopDrag);
+
+        // Функции
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#4361ee';
+            uploadArea.style.backgroundColor = 'rgba(67, 97, 238, 0.1)';
+        }
+
+        function handleDragLeave() {
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = 'transparent';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            handleDragLeave();
+
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.match('image.*')) {
+                uploadFile(file);
+            }
+        }
+
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.image) {
+                    updateImage(`data:image/png;base64,${data.image}`, data.width, data.height);
+                    initSelectionBox(data.width, data.height);
+                }
+            });
+        }
+
+        function updateImage(imageSrc, width, height) {
+            currentImage = imageSrc;
+            imageCanvas.src = currentImage;
+            imageWidth = width;
+            imageHeight = height;
+
+            imageCanvas.onload = () => {
+                imageCanvas.style.display = 'block';
+                hideUploadArea();
+            };
+        }
+
+        function hideUploadArea() {
+            uploadArea.style.display = 'none';
+        }
+
+        function showUploadArea() {
+            uploadArea.style.display = 'flex';
+            imageCanvas.style.display = 'none';
+        }
+
+        function applyFilter(filterName) {
+            fetch(`/filter/${filterName}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.image) {
+                        imageCanvas.src = `data:image/png;base64,${data.image}`;
+                    }
+                });
+        }
+
+        function adjustImage(setting, value) {
+            fetch(`/adjust/${setting}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ value: value }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.image) {
+                    imageCanvas.src = `data:image/png;base64,${data.image}`;
+                }
+            });
+        }
+
+        function initSelectionBox(width, height) {
+            // Устанавливаем начальный размер выделения (80% от изображения)
+            selectionW = width * 0.8;
+            selectionH = height * 0.8;
+            selectionX = (width - selectionW) / 2;
+            selectionY = (height - selectionH) / 2;
+
+            updateSelectionBox();
+            showSelectionBox();
+
+            // Отправляем начальные координаты на сервер
+            updateServerSelection();
+        }
+
+        function updateSelectionBox() {
+            const rect = imageCanvas.getBoundingClientRect();
+            const scaleX = rect.width / imageWidth;
+            const scaleY = rect.height / imageHeight;
+
+            selectionBox.style.left = `${rect.left + selectionX * scaleX}px`;
+            selectionBox.style.top = `${rect.top + selectionY * scaleY}px`;
+            selectionBox.style.width = `${selectionW * scaleX}px`;
+            selectionBox.style.height = `${selectionH * scaleY}px`;
+        }
+
+        function showSelectionBox() {
+            selectionBox.style.display = 'block';
+        }
+
+        function hideSelectionBox() {
+            selectionBox.style.display = 'none';
+        }
+
+        function startSelectionDrag(e) {
+            if (e.target === selectionBox) {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                e.preventDefault();
+            }
+        }
+
+        function startResize(e) {
+            isResizing = true;
+            resizeHandle = e.target;
+            startX = e.clientX;
+            startY = e.clientY;
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrag(e) {
+            if (!isDragging && !isResizing) return;
+
+            const rect = imageCanvas.getBoundingClientRect();
+            const scaleX = imageWidth / rect.width;
+            const scaleY = imageHeight / rect.height;
+
+            const dx = (e.clientX - startX) * scaleX;
+            const dy = (e.clientY - startY) * scaleY;
+
+            if (isDragging) {
+                // Перемещение выделения
+                selectionX += dx;
+                selectionY += dy;
+
+                // Проверка границ
+                selectionX = Math.max(0, Math.min(selectionX, imageWidth - selectionW));
+                selectionY = Math.max(0, Math.min(selectionY, imageHeight - selectionH));
+            } else if (isResizing) {
+                // Изменение размера выделения
+                if (resizeHandle.classList.contains('selection-handle-nw')) {
+                    selectionX += dx;
+                    selectionY += dy;
+                    selectionW -= dx;
+                    selectionH -= dy;
+                } else if (resizeHandle.classList.contains('selection-handle-ne')) {
+                    selectionY += dy;
+                    selectionW += dx;
+                    selectionH -= dy;
+                } else if (resizeHandle.classList.contains('selection-handle-sw')) {
+                    selectionX += dx;
+                    selectionW -= dx;
+                    selectionH += dy;
+                } else if (resizeHandle.classList.contains('selection-handle-se')) {
+                    selectionW += dx;
+                    selectionH += dy;
+                }
+
+                // Минимальный размер
+                selectionW = Math.max(10, selectionW);
+                selectionH = Math.max(10, selectionH);
+
+                // Проверка границ
+                if (resizeHandle.classList.contains('selection-handle-nw') ||
+                    resizeHandle.classList.contains('selection-handle-sw')) {
+                    selectionX = Math.max(0, Math.min(selectionX, imageWidth - 10));
+                }
+                if (resizeHandle.classList.contains('selection-handle-nw') ||
+                    resizeHandle.classList.contains('selection-handle-ne')) {
+                    selectionY = Math.max(0, Math.min(selectionY, imageHeight - 10));
+                }
+            }
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            updateSelectionBox();
+            updateServerSelection();
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            isResizing = false;
+            resizeHandle = null;
+        }
+
+        function updateServerSelection() {
+            fetch('/selection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    x: Math.round(selectionX),
+                    y: Math.round(selectionY),
+                    w: Math.round(selectionW),
+                    h: Math.round(selectionH)
+                }),
+            });
+        }
+
+        // Сохранение изображения
+        saveBtn.addEventListener('click', () => {
+            if (!imageCanvas.src || imageCanvas.style.display === 'none') return;
+
+            const filename = prompt('Введите имя файла (без расширения):', 'edited_image');
+            if (filename) {
+                fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ filename: `${filename}.png` }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.url) {
+                        const link = document.createElement('a');
+                        link.href = data.url;
+                        link.download = `${filename}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                });
+            }
+        });
+
+        // Обработка изменения размера окна
+        window.addEventListener('resize', () => {
+            if (imageCanvas.src && imageCanvas.style.display !== 'none') {
+                updateSelectionBox();
+            }
+        });
+    </script>
+</body>
+</html>
